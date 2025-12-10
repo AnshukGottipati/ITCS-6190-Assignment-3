@@ -2,6 +2,12 @@
 
 This project demonstrates an end-to-end serverless data processing pipeline on AWS. The process involves ingesting raw data into S3, using a Lambda function to process it, cataloging the data with AWS Glue, and finally, querying and visualizing the results on a dynamic webpage hosted on an EC2 instance.
 
+
+## Explanation
+
+This project makes a simple data analysis pipeline on AWS. Raw order CSVs are uploaded into the `raw/` folder of an S3 bucket. That upload event triggers a Lambda function, which cleans and filters the data and writes the processed output into the `processed/` folder. A Glue crawler scans the `processed/` data and creates a table in the `orders_db` Glue/Athena database so the data can be queried with SQL. Athena is then used to run several analytical queries (total sales by customer, monthly revenue, order status, etc.) with the queries present in /app.py, and the results are written back into the `enriched/` folder in S3. Finally, a Flask app running on an EC2 instance calls Athena via Boto3, reads those query results from S3, and renders them as HTML tables on a simple “Orders Dashboard” web page that you can view in your browser. IAM roles connect all these services securely so they can read/write S3 and talk to each other.
+
+
 ## 1. Amazon S3 Bucket Structure 🪣
 
 First, set up an S3 bucket with the following folder structure to manage the data workflow:
@@ -12,7 +18,7 @@ First, set up an S3 bucket with the following folder structure to manage the dat
     * **`enriched/`**: For storing athena query results.
 
 ---
-
+![step1](./screenshots/step_1.png)
 ## 2. IAM Roles and Permissions 🔐
 
 Create the following IAM roles to grant AWS services the necessary permissions to interact with each other securely.
@@ -26,7 +32,7 @@ Create the following IAM roles to grant AWS services the necessary permissions t
     * `AWSLambdaBasicExecutionRole`
     * `AmazonS3FullAccess`
 5.  Give the role a descriptive name (e.g., `Lambda-S3-Processing-Role`) and create it.
-
+![step_2a](./screenshots/step_2a.png)
 ### Glue Service Role
 
 1.  Create another IAM role for **AWS service** with the use case **Glue**.
@@ -35,7 +41,7 @@ Create the following IAM roles to grant AWS services the necessary permissions t
     * `AWSGlueConsoleFullAccess`
     * `AWSGlueServiceRole`
 3.  Name the role (e.g., `Glue-S3-Crawler-Role`) and create it.
-
+![step_2b](./screenshots/step_2b.png)
 ### EC2 Instance Profile
 
 1.  Create a final IAM role for **AWS service** with the use case **EC2**.
@@ -43,7 +49,7 @@ Create the following IAM roles to grant AWS services the necessary permissions t
     * `AmazonS3FullAccess`
     * `AmazonAthenaFullAccess`
 3.  Name the role (e.g., `EC2-Athena-Dashboard-Role`) and create it.
-
+![step_2c](./screenshots/step_2c.png)
 ---
 
 ## 3. Create the Lambda Function ⚙️
@@ -58,7 +64,7 @@ This function will automatically process files uploaded to the `raw/` S3 folder.
 6.  **Permissions**: Expand *Change default execution role*, select **Use an existing role**, and choose the **Lambda Execution Role** you created.
 7.  Click **Create function**.
 8.  In the **Code source** editor, replace the default code with LambdaFunction.py code for processing the raw data.
-
+![step_3](./screenshots/step_3.png)
 ---
 
 ## 4. Configure the S3 Trigger ⚡
@@ -72,9 +78,12 @@ Set up the S3 trigger to invoke your Lambda function automatically.
 5.  **Prefix (Required)**: Enter `raw/`. This ensures the function only triggers for files in this folder.
 6.  **Suffix (Recommended)**: Enter `.csv`.
 7.  Check the acknowledgment box and click **Add**.
-
+![step_4](./screenshots/step_4.png)
 --- 
 **Start Processing of Raw Data**: Now upload the Orders.csv file into the `raw/` folder of the S3 Bucket. This will automatically trigger the Lambda function.
+
+#### A screenshot of the processed CSV file in the processed folder on S3.
+![step_5](./screenshots/step_5.png)
 ---
 
 ## 5. Create a Glue Crawler 🕸️
@@ -89,6 +98,8 @@ The crawler will scan your processed data and create a data catalog, making it q
 6.  **Output**: Click **Add database** and create a new database named `orders_db`.
 7.  Finish the setup and run the crawler. It will create a new table in your `orders_db` database.
 
+#### Cloud Watch Logs
+![step_6](./screenshots/step_6.png)
 ---
 
 ## 6. Query Data with Amazon Athena 🔍
@@ -184,6 +195,12 @@ Once connected via SSH, run the following commands to install the necessary soft
     http://YOUR_PUBLIC_IP_ADDRESS:5000
     ```
     You should now see your Athena Orders Dashboard!
+    ![step_8](./screenshots/step_8.png)
+
+   #### The Athena query CSVs can be found in the S3 enriched folder.
+   ![step_7](./screenshots/step_7.png)
+
+## 12: The Query Outputs can be found in the ./outputs directory
 
 ---
 
